@@ -13,7 +13,7 @@ import javafx.scene.input.MouseButton;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.io.File;
+import java.io.*;
 
 public class MainApplication extends Application{
 	private static int WIDTH = 1000;
@@ -133,7 +133,6 @@ public class MainApplication extends Application{
 		if (this.keys.getOrDefault(KeyCode.SPACE, false)){ // Pause/Resume [SPACE]
 			if (this.paused){
 				this.backup = this.world.backup(); // Make backup before the simulation starts
-				System.out.println("Backup saved");
 			}
 			this.paused = !this.paused;
 			this.keys.put(KeyCode.SPACE, false);
@@ -149,14 +148,12 @@ public class MainApplication extends Application{
 		} else if (this.keys.getOrDefault(KeyCode.C, false)){ // Create backup [C]
 			if (this.paused){
 				this.backup = this.world.backup();
-				System.out.println("Backup saved");
 			}
 			this.keys.put(KeyCode.C, false);
 		} else if (this.keys.getOrDefault(KeyCode.V, false)){ // Restore backup [V]
 			if (this.paused){
 				this.world.restore(this.backup);
 				resetSettings();
-				System.out.println("Backup restored");
 			}
 			this.keys.put(KeyCode.V, false);
 		} else if (this.keys.getOrDefault(KeyCode.L, false)){ // Load file [L]
@@ -172,6 +169,17 @@ public class MainApplication extends Application{
 				}
 			}
 			this.keys.put(KeyCode.L, false);
+		} else if (this.keys.getOrDefault(KeyCode.S, false)){ // Save file [S]
+			if (this.paused){
+				FileChooser chooser = new FileChooser();
+				chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Plaintext files", "*.cells"));
+				File file = chooser.showSaveDialog(this.stage);
+				if (file != null){
+					saveData(this.backup, file);
+					System.out.println("File saved");
+				}
+			}
+			this.keys.put(KeyCode.S, false);
 		} else if (this.keys.getOrDefault(KeyCode.Q, false)){ // Random [Q]
 			if (this.paused){
 				this.world.generateRandom(WIDTH/World.CELL_SIZE, HEIGHT/World.CELL_SIZE);
@@ -201,6 +209,44 @@ public class MainApplication extends Application{
 
 		gc.setFill(Color.LIME);
 		gc.fillText(String.format("Generation: %d\nAlive: %d\nPaused: %s", this.genCount, this.world.countAlive(), this.paused), 20, 30);
+	}
+
+	private void saveData(HashSet<Point> data, File file){
+		if (!file.getName().endsWith(".cells")){
+			file = new File(file.getParent(), file.getName()+".cells");
+		}
+
+		try {
+			BufferedWriter writer = new BufferedWriter(new FileWriter(file));
+			writer.write("!Name: "+file.getName());
+			writer.write("\n! Description\n");
+
+			int minX = Integer.MAX_VALUE;
+			int minY = Integer.MAX_VALUE;
+			int maxX = Integer.MIN_VALUE;
+			int maxY = Integer.MIN_VALUE;
+
+			for (Point p : data){
+				minX = Math.min(minX, p.getX());
+				minY = Math.min(minY, p.getY());
+				maxX = Math.max(maxX, p.getX());
+				maxY = Math.max(maxY, p.getY());
+			}
+
+			final int w = maxX-minX+1;
+			final int h = maxY-minY+1;
+
+			for (int i = 0; i < w; i++){
+				for (int j = 0; j < h; j++){
+					writer.write(data.contains(new Point(minX+i, minY+j)) ? "O" : ".");
+				}
+				writer.write("\n");
+			}
+
+			writer.close();
+		} catch (IOException ex){
+			ex.printStackTrace();
+		}
 	}
 
 	public static void main(String[] args){
