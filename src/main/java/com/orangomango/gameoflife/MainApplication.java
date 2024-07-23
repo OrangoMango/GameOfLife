@@ -51,7 +51,12 @@ public class MainApplication extends Application{
 		});
 
 		canvas.setOnMouseDragged(e -> {
-			if (e.getButton() == MouseButton.SECONDARY){
+			if (e.getButton() == MouseButton.PRIMARY){
+				int xp = (int)Math.floor((e.getX()-this.offsetX)/World.CELL_SIZE);
+				int yp = (int)Math.floor((e.getY()-this.offsetY)/World.CELL_SIZE);
+
+				this.world.put(xp, yp, e.getButton() == MouseButton.PRIMARY ? 1 : 0);
+			} else if (e.getButton() == MouseButton.SECONDARY){
 				if (this.dragX == -1 && this.dragY == -1){
 					this.dragX = e.getX();
 					this.dragY = e.getY();
@@ -126,6 +131,10 @@ public class MainApplication extends Application{
 		gc.fillRect(0, 0, WIDTH, HEIGHT);
 
 		if (this.keys.getOrDefault(KeyCode.SPACE, false)){ // Pause/Resume [SPACE]
+			if (this.paused){
+				this.backup = this.world.backup(); // Make backup before the simulation starts
+				System.out.println("Backup saved");
+			}
 			this.paused = !this.paused;
 			this.keys.put(KeyCode.SPACE, false);
 		} else if (this.keys.getOrDefault(KeyCode.R, false)){ // Reset [R]
