@@ -2,8 +2,8 @@ package com.orangomango.gameoflife;
 
 import javafx.application.Application;
 import javafx.stage.Stage;
+import javafx.stage.FileChooser;
 import javafx.scene.Scene;
-import javafx.scene.layout.StackPane;
 import javafx.scene.canvas.*;
 import javafx.scene.paint.Color;
 import javafx.animation.*;
@@ -12,34 +12,41 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.io.File;
 
 public class MainApplication extends Application{
-	private static final int WIDTH = 1000;
-	private static final int HEIGHT = 700;
+	private static int WIDTH = 1000;
+	private static int HEIGHT = 700;
 
+	private Stage stage;
 	private World world;
 	private HashMap<KeyCode, Boolean> keys = new HashMap<>();
 	private boolean paused = true, showGrid = false;
 	private int genCount = 0;
 	private double offsetX, offsetY, dragX = -1, dragY = -1;
+	private HashSet<Point> backup;
 
 	@Override
 	public void start(Stage stage){
-		StackPane pane = new StackPane();
+		this.stage = stage;
 		Canvas canvas = new Canvas(WIDTH, HEIGHT);
 		GraphicsContext gc = canvas.getGraphicsContext2D();
-		pane.getChildren().add(canvas);
+		CanvasPane canvasPane = new CanvasPane(canvas, (w, h) -> {
+			WIDTH = (int)w;
+			HEIGHT = (int)h;
+		});
 
 		canvas.setFocusTraversable(true);
 		canvas.setOnKeyPressed(e -> this.keys.put(e.getCode(), true));
 		canvas.setOnKeyReleased(e -> this.keys.put(e.getCode(), false));
 
 		canvas.setOnMousePressed(e -> {
-			if (e.getButton() == MouseButton.PRIMARY && this.paused){
-				int xp = (int)Math.round((e.getX()-this.offsetX)/World.CELL_SIZE);
-				int yp = (int)Math.round((e.getY()-this.offsetY)/World.CELL_SIZE);
+			if (this.paused){
+				int xp = (int)Math.floor((e.getX()-this.offsetX)/World.CELL_SIZE);
+				int yp = (int)Math.floor((e.getY()-this.offsetY)/World.CELL_SIZE);
 
-				this.world.put(xp, yp);
+				this.world.put(xp, yp, e.getButton() == MouseButton.PRIMARY ? 1 : 0);
 			}
 		});
 
@@ -65,12 +72,17 @@ public class MainApplication extends Application{
 		canvas.setOnScroll(e -> {
 			if (e.getDeltaY() > 0){
 				World.CELL_SIZE += 1;
+				this.offsetX -= 20;
+				this.offsetY -= 20;
 			} else if (e.getDeltaY() < 0){
 				World.CELL_SIZE -= 1;
+				this.offsetX += 20;
+				this.offsetY += 20;
 			}
 		});
 
 		this.world = new World();
+		this.backup = this.world.backup();
 
 		Timeline loop = new Timeline(new KeyFrame(Duration.millis(50), e -> {
 			if (!this.paused){
@@ -93,12 +105,19 @@ public class MainApplication extends Application{
 		};
 		renderLoop.start();
 
-		Scene scene = new Scene(pane, WIDTH, HEIGHT);
+		Scene scene = new Scene(canvasPane, WIDTH, HEIGHT);
 		scene.setFill(Color.BLACK);
 
-		stage.setTitle("Game Of Life");
-		stage.setScene(scene);
-		stage.show();
+		this.stage.setTitle("Game Of Life");
+		this.stage.setScene(scene);
+		this.stage.show();
+	}
+
+	private void resetSettings(){
+		this.genCount = 0;
+		this.offsetX = 0;
+		this.offsetY = 0;
+		World.CELL_SIZE = 20;
 	}
 
 	private void update(GraphicsContext gc){
@@ -106,19 +125,50 @@ public class MainApplication extends Application{
 		gc.setFill(Color.BLACK);
 		gc.fillRect(0, 0, WIDTH, HEIGHT);
 
-		if (this.keys.getOrDefault(KeyCode.SPACE, false)){
+		if (this.keys.getOrDefault(KeyCode.SPACE, false)){ // Pause/Resume [SPACE]
 			this.paused = !this.paused;
 			this.keys.put(KeyCode.SPACE, false);
-		} else if (this.keys.getOrDefault(KeyCode.R, false)){
-			this.world.reset();
-			this.genCount = 0;
-			this.offsetX = 0;
-			this.offsetY = 0;
-			World.CELL_SIZE = 20;
+		} else if (this.keys.getOrDefault(KeyCode.R, false)){ // Reset [R]
+			if (this.paused){
+				this.world.reset();
+				resetSettings();
+			}
 			this.keys.put(KeyCode.R, false);
-		} else if (this.keys.getOrDefault(KeyCode.G, false)){
+		} else if (this.keys.getOrDefault(KeyCode.G, false)){ // Show/Hide grid [G]
 			this.showGrid = !this.showGrid;
 			this.keys.put(KeyCode.G, false);
+		} else if (this.keys.getOrDefault(KeyCode.C, false)){ // Create backup [C]
+			if (this.paused){
+				this.backup = this.world.backup();
+				System.out.println("Backup saved");
+			}
+			this.keys.put(KeyCode.C, false);
+		} else if (this.keys.getOrDefault(KeyCode.V, false)){ // Restore backup [V]
+			if (this.paused){
+				this.world.restore(this.backup);
+				resetSettings();
+				System.out.println("Backup restored");
+			}
+			this.keys.put(KeyCode.V, false);
+		} else if (this.keys.getOrDefault(KeyCode.L, false)){ // Load file [L]
+			if (this.paused){
+				FileChooser chooser = new FileChooser();
+				chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Plaintext files", "*.cells"));
+				File file = chooser.showOpenDialog(this.stage);
+				if (file != null){
+					CellsData data = this.world.load(file);
+					this.world.restore(data.getData());
+					resetSettings();
+					System.out.format("==========\nFile loaded. Name: %s\nDescription: %s==========", data.getName(), data.getDescription());
+				}
+			}
+			this.keys.put(KeyCode.L, false);
+		} else if (this.keys.getOrDefault(KeyCode.Q, false)){ // Random [Q]
+			if (this.paused){
+				this.world.generateRandom(WIDTH/World.CELL_SIZE, HEIGHT/World.CELL_SIZE);
+				resetSettings();
+			}
+			this.keys.put(KeyCode.Q, false);
 		}
 
 		if (this.showGrid){
