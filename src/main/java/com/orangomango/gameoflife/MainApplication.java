@@ -19,7 +19,7 @@ public class MainApplication extends Application{
 
 	private World world;
 	private HashMap<KeyCode, Boolean> keys = new HashMap<>();
-	private boolean paused = true;
+	private boolean paused = true, showGrid = false;
 	private int genCount = 0;
 	private double offsetX, offsetY, dragX = -1, dragY = -1;
 
@@ -36,8 +36,8 @@ public class MainApplication extends Application{
 
 		canvas.setOnMousePressed(e -> {
 			if (e.getButton() == MouseButton.PRIMARY && this.paused){
-				int xp = (int)((e.getX()-this.offsetX)/World.CELL_SIZE);
-				int yp = (int)((e.getY()-this.offsetY)/World.CELL_SIZE);
+				int xp = (int)Math.round((e.getX()-this.offsetX)/World.CELL_SIZE);
+				int yp = (int)Math.round((e.getY()-this.offsetY)/World.CELL_SIZE);
 
 				this.world.put(xp, yp);
 			}
@@ -114,7 +114,25 @@ public class MainApplication extends Application{
 			this.genCount = 0;
 			this.offsetX = 0;
 			this.offsetY = 0;
+			World.CELL_SIZE = 20;
 			this.keys.put(KeyCode.R, false);
+		} else if (this.keys.getOrDefault(KeyCode.G, false)){
+			this.showGrid = !this.showGrid;
+			this.keys.put(KeyCode.G, false);
+		}
+
+		if (this.showGrid){
+			// Draw grid
+			if (this.showGrid){
+				gc.setStroke(Color.web("#B3B3B3"));
+				gc.setLineWidth(1.5);
+				for (double i = this.offsetX % World.CELL_SIZE; i <= WIDTH; i += World.CELL_SIZE){
+					gc.strokeLine(i, 0, i, HEIGHT);
+				}
+				for (double i = this.offsetY % World.CELL_SIZE; i <= HEIGHT; i += World.CELL_SIZE){
+					gc.strokeLine(0, i, WIDTH, i);
+				}
+			}
 		}
 
 		gc.save();
