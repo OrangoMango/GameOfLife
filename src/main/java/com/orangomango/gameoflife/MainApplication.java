@@ -236,8 +236,8 @@ public class MainApplication extends Application{
 			final int w = maxX-minX+1;
 			final int h = maxY-minY+1;
 
-			for (int i = 0; i < w; i++){
-				for (int j = 0; j < h; j++){
+			for (int j = 0; j < h; j++){
+				for (int i = 0; i < w; i++){
 					writer.write(data.contains(new Point(minX+i, minY+j)) ? "O" : ".");
 				}
 				writer.write("\n");
