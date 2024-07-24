@@ -2,6 +2,7 @@ package com.orangomango.gameoflife;
 
 import javafx.application.Application;
 import javafx.stage.Stage;
+import javafx.stage.Screen;
 import javafx.scene.Scene;
 import javafx.scene.layout.VBox;
 import javafx.scene.canvas.*;
@@ -15,6 +16,7 @@ import javafx.scene.image.Image;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Random;
 
 import dev.webfx.platform.console.Console;
 import dev.webfx.platform.file.FileReader;
@@ -45,6 +47,7 @@ public class MainApplication extends Application{
 		picker.setGraphic(new ImageView(new Image(Resource.toUrl("/images/icon.png", MainApplication.class))));
 		picker.selectedFileProperty().addListener((ob, oldV, newV) -> {
 			this.selectedFile = newV;
+			loadFile();
 		});
 
 		Canvas canvas = new Canvas(WIDTH, HEIGHT);
@@ -87,15 +90,17 @@ public class MainApplication extends Application{
 		});
 
 		canvas.setOnScroll(e -> {
-			if (e.getDeltaY() > 0){
+			if (e.getDeltaY() < 0){
 				World.CELL_SIZE += 1;
 				this.offsetX -= 20;
 				this.offsetY -= 20;
-			} else if (e.getDeltaY() < 0){
+			} else if (e.getDeltaY() > 0){
 				World.CELL_SIZE -= 1;
 				this.offsetX += 20;
 				this.offsetY += 20;
 			}
+
+			World.CELL_SIZE = Math.max(1, Math.min(100, World.CELL_SIZE));
 		});
 
 		this.world = new World();
@@ -122,7 +127,7 @@ public class MainApplication extends Application{
 		};
 		renderLoop.start();
 
-		Scene scene = new Scene(new VBox(5, picker.getView(), canvasPane), WIDTH, HEIGHT);
+		Scene scene = new Scene(new VBox(5, picker.getView(), canvasPane), Screen.getPrimary().getVisualBounds().getWidth(), Screen.getPrimary().getVisualBounds().getHeight());
 		scene.setFill(Color.BLACK);
 
 		this.stage.setTitle("Game Of Life");
@@ -171,17 +176,13 @@ public class MainApplication extends Application{
 			this.keys.put(KeyCode.V, false);
 		} else if (this.keys.getOrDefault(KeyCode.L, false)){ // Load file [L]
 			if (this.paused && this.selectedFile != null){
-				FileReader.create().readAsText(this.selectedFile).onSuccess(fileData -> {
-					CellsData data = this.world.load(fileData);
-					this.world.restore(data.getData());
-					resetSettings();
-					Console.log("==========\nFile loaded. Name: "+data.getName()+"\nDescription: "+data.getDescription()+"==========");
-				});
+				loadFile();
 			}
 			this.keys.put(KeyCode.L, false);
 		} else if (this.keys.getOrDefault(KeyCode.S, false)){ // Save file [S]
 			if (this.paused){
-				saveData(this.backup, "gameoflife.cells"); // TODO
+				Random random = new Random();
+				saveData(this.backup, "gameoflife"+(random.nextInt(100000)+10000)+".cells");
 			}
 			this.keys.put(KeyCode.S, false);
 		} else if (this.keys.getOrDefault(KeyCode.Q, false)){ // Random [Q]
@@ -239,8 +240,8 @@ public class MainApplication extends Application{
 		final int w = maxX-minX+1;
 		final int h = maxY-minY+1;
 
-		for (int i = 0; i < w; i++){
-			for (int j = 0; j < h; j++){
+		for (int j = 0; j < h; j++){
+			for (int i = 0; i < w; i++){
 				builder.append(data.contains(new Point(minX+i, minY+j)) ? "O" : ".");
 			}
 			builder.append("\n");
@@ -248,6 +249,15 @@ public class MainApplication extends Application{
 
 		Blob textBlob = BlobProvider.get().createTextBlob(builder.toString());
 		BlobProvider.get().exportBlob(textBlob, fileName);
+	}
+
+	private void loadFile(){
+		FileReader.create().readAsText(this.selectedFile).onSuccess(fileData -> {
+			CellsData data = this.world.load(fileData);
+			this.world.restore(data.getData());
+			resetSettings();
+			Console.log("==========\nFile loaded. Name: "+data.getName()+"\nDescription: "+data.getDescription()+"==========");
+		});
 	}
 
 	public static void main(String[] args){
