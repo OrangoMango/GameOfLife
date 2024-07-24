@@ -1,5 +1,9 @@
 # Conway's Game Of Life (v1.0-beta, not finished yet)
-Conway's game of life implementation in Java with the JavaFX framework
+Conway's game of life implementation in Java with the JavaFX framework.
+
+# Links
+* Play it here (browser, windows, linux and mac): https://orangomango.itch.io/gameoflife
+* Wikipedia: https://en.wikipedia.org/wiki/Conway's_Game_of_Life
 
 # Rules
 A cell can be alive (white) or dead (black). On each generation the following rules are applied:
