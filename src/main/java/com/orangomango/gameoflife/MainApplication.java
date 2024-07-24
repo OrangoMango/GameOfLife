@@ -6,6 +6,7 @@ import javafx.stage.FileChooser;
 import javafx.scene.Scene;
 import javafx.scene.canvas.*;
 import javafx.scene.paint.Color;
+import javafx.scene.image.Image;
 import javafx.animation.*;
 import javafx.util.Duration;
 import javafx.scene.input.KeyCode;
@@ -84,6 +85,8 @@ public class MainApplication extends Application{
 				this.offsetX += 20;
 				this.offsetY += 20;
 			}
+
+			World.CELL_SIZE = Math.max(1, Math.min(100, World.CELL_SIZE));
 		});
 
 		this.world = new World();
@@ -115,6 +118,7 @@ public class MainApplication extends Application{
 
 		this.stage.setTitle("Game Of Life");
 		this.stage.setScene(scene);
+		this.stage.getIcons().add(new Image(getClass().getResourceAsStream("/icon.png")));
 		this.stage.show();
 	}
 
