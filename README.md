@@ -13,6 +13,7 @@ A cell can be alive (white) or dead (black). On each generation the following ru
 4. Any dead cell with exactly 3 neighbors is alive
 
 # Keys
+Use the right and left mouse buttons to place/remove cells and to pan the view. Initially the game is paused.
 * `SPACE` to pause/resume
 * `R` to reset
 * `G` to show/hide grid
