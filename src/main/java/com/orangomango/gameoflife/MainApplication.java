@@ -14,6 +14,7 @@ import javafx.scene.input.MouseButton;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.ArrayList;
 import java.io.*;
 
 public class MainApplication extends Application{
@@ -27,6 +28,8 @@ public class MainApplication extends Application{
 	private int genCount = 0;
 	private double offsetX, offsetY, dragX = -1, dragY = -1;
 	private HashSet<Point> backup;
+	private ArrayList<UiButton> buttons = new ArrayList<>();
+	private boolean moveMode = false;
 
 	@Override
 	public void start(Stage stage){
@@ -36,6 +39,9 @@ public class MainApplication extends Application{
 		CanvasPane canvasPane = new CanvasPane(canvas, (w, h) -> {
 			WIDTH = (int)w;
 			HEIGHT = (int)h;
+			for (int i = 0; i < this.buttons.size(); i++){
+				this.buttons.get(i).updatePosition(30+i*40, HEIGHT-50);
+			}
 		});
 
 		canvas.setFocusTraversable(true);
@@ -43,21 +49,25 @@ public class MainApplication extends Application{
 		canvas.setOnKeyReleased(e -> this.keys.put(e.getCode(), false));
 
 		canvas.setOnMousePressed(e -> {
-			if (this.paused){
+			boolean buttonClicked = false;
+			for (UiButton button : this.buttons){
+				boolean out = button.click(e.getX(), e.getY());
+				if (out){
+					buttonClicked = true;
+					break;
+				}
+			}
+
+			if (!buttonClicked && e.getButton() == MouseButton.PRIMARY && this.paused && !this.moveMode){
 				int xp = (int)Math.floor((e.getX()-this.offsetX)/World.CELL_SIZE);
 				int yp = (int)Math.floor((e.getY()-this.offsetY)/World.CELL_SIZE);
 
-				this.world.put(xp, yp, e.getButton() == MouseButton.PRIMARY ? 1 : 0);
+				this.world.put(xp, yp);
 			}
 		});
 
 		canvas.setOnMouseDragged(e -> {
-			if (e.getButton() == MouseButton.PRIMARY){
-				int xp = (int)Math.floor((e.getX()-this.offsetX)/World.CELL_SIZE);
-				int yp = (int)Math.floor((e.getY()-this.offsetY)/World.CELL_SIZE);
-
-				this.world.put(xp, yp, e.getButton() == MouseButton.PRIMARY ? 1 : 0);
-			} else if (e.getButton() == MouseButton.SECONDARY){
+			if (this.moveMode || e.getButton() == MouseButton.SECONDARY){
 				if (this.dragX == -1 && this.dragY == -1){
 					this.dragX = e.getX();
 					this.dragY = e.getY();
@@ -91,6 +101,13 @@ public class MainApplication extends Application{
 
 		this.world = new World();
 		this.backup = this.world.backup();
+
+		// UiButtons
+		for (int i = 0; i < 9; i++){
+			final int actionId = i;
+			UiButton button = new UiButton(30+i*40, HEIGHT-50, i, () -> triggerAction(actionId));
+			this.buttons.add(button);
+		}
 
 		Timeline loop = new Timeline(new KeyFrame(Duration.millis(50), e -> {
 			if (!this.paused){
@@ -129,66 +146,99 @@ public class MainApplication extends Application{
 		World.CELL_SIZE = 20;
 	}
 
+	private void triggerAction(int actionId){
+		switch (actionId){
+			case 0:
+				if (this.paused){
+					// Make backup before the simulation starts
+					this.backup = this.world.backup();
+				}
+				this.paused = !this.paused;
+				break;
+			case 1:
+				if (this.paused){
+					this.world.reset();
+					resetSettings();
+				}
+				break;
+			case 2:
+				this.showGrid = !this.showGrid;
+				break;
+			case 3:
+				if (this.paused){
+					this.backup = this.world.backup();
+				}
+				break;
+			case 4:
+				if (this.paused){
+					this.world.restore(this.backup);
+					resetSettings();
+				}
+				break;
+			case 5:
+				if (this.paused){
+					FileChooser chooser = new FileChooser();
+					chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Plaintext files", "*.cells"));
+					File file = chooser.showOpenDialog(this.stage);
+					if (file != null){
+						CellsData data = this.world.load(file);
+						this.world.restore(data.getData());
+						resetSettings();
+						System.out.format("==========\nFile loaded. Name: %s\nDescription: %s==========", data.getName(), data.getDescription());
+					}
+				}
+				break;
+			case 6:
+				if (this.paused){
+					FileChooser chooser = new FileChooser();
+					chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Plaintext files", "*.cells"));
+					File file = chooser.showSaveDialog(this.stage);
+					if (file != null){
+						saveData(this.backup, file);
+						System.out.println("File saved");
+					}
+				}
+				break;
+			case 7:
+				if (this.paused){
+					this.world.generateRandom(WIDTH/World.CELL_SIZE, HEIGHT/World.CELL_SIZE);
+					resetSettings();
+				}
+				break;
+			case 8:
+				this.moveMode = !this.moveMode;
+				break;
+		}
+	}
+
 	private void update(GraphicsContext gc){
 		gc.clearRect(0, 0, WIDTH, HEIGHT);
 		gc.setFill(Color.BLACK);
 		gc.fillRect(0, 0, WIDTH, HEIGHT);
 
 		if (this.keys.getOrDefault(KeyCode.SPACE, false)){ // Pause/Resume [SPACE]
-			if (this.paused){
-				this.backup = this.world.backup(); // Make backup before the simulation starts
-			}
-			this.paused = !this.paused;
+			triggerAction(0);
 			this.keys.put(KeyCode.SPACE, false);
 		} else if (this.keys.getOrDefault(KeyCode.R, false)){ // Reset [R]
-			if (this.paused){
-				this.world.reset();
-				resetSettings();
-			}
+			triggerAction(1);
 			this.keys.put(KeyCode.R, false);
 		} else if (this.keys.getOrDefault(KeyCode.G, false)){ // Show/Hide grid [G]
-			this.showGrid = !this.showGrid;
+			triggerAction(2);
 			this.keys.put(KeyCode.G, false);
 		} else if (this.keys.getOrDefault(KeyCode.C, false)){ // Create backup [C]
-			if (this.paused){
-				this.backup = this.world.backup();
-			}
+			triggerAction(3);
 			this.keys.put(KeyCode.C, false);
 		} else if (this.keys.getOrDefault(KeyCode.V, false)){ // Restore backup [V]
-			if (this.paused){
-				this.world.restore(this.backup);
-				resetSettings();
-			}
+			triggerAction(4);
 			this.keys.put(KeyCode.V, false);
 		} else if (this.keys.getOrDefault(KeyCode.L, false)){ // Load file [L]
-			if (this.paused){
-				FileChooser chooser = new FileChooser();
-				chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Plaintext files", "*.cells"));
-				File file = chooser.showOpenDialog(this.stage);
-				if (file != null){
-					CellsData data = this.world.load(file);
-					this.world.restore(data.getData());
-					resetSettings();
-					System.out.format("==========\nFile loaded. Name: %s\nDescription: %s==========", data.getName(), data.getDescription());
-				}
-			}
+			triggerAction(5);
 			this.keys.put(KeyCode.L, false);
 		} else if (this.keys.getOrDefault(KeyCode.S, false)){ // Save file [S]
-			if (this.paused){
-				FileChooser chooser = new FileChooser();
-				chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Plaintext files", "*.cells"));
-				File file = chooser.showSaveDialog(this.stage);
-				if (file != null){
-					saveData(this.backup, file);
-					System.out.println("File saved");
-				}
-			}
+			triggerAction(6);
 			this.keys.put(KeyCode.S, false);
 		} else if (this.keys.getOrDefault(KeyCode.Q, false)){ // Random [Q]
-			if (this.paused){
-				this.world.generateRandom(WIDTH/World.CELL_SIZE, HEIGHT/World.CELL_SIZE);
-				resetSettings();
-			}
+			triggerAction(7);
 			this.keys.put(KeyCode.Q, false);
 		}
 
@@ -212,7 +262,11 @@ public class MainApplication extends Application{
 		gc.restore();
 
 		gc.setFill(Color.LIME);
-		gc.fillText(String.format("Generation: %d\nAlive: %d\nPaused: %s", this.genCount, this.world.countAlive(), this.paused), 20, 30);
+		gc.fillText(String.format("Generation: %d\nAlive: %d\nPaused: %s\nMove mode: %s\n\nCELL_SIZE: %d\nCamera: x=%.2f y=%.2f", this.genCount, this.world.countAlive(), this.paused, this.moveMode, World.CELL_SIZE, this.offsetX, this.offsetY), 20, 30);
+
+		for (UiButton button : this.buttons){
+			button.render(gc);
+		}
 	}
 
 	private void saveData(HashSet<Point> data, File file){

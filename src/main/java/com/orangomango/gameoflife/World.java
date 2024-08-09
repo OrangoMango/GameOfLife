@@ -112,11 +112,12 @@ public class World{
 		this.aliveCells.clear();
 	}
 
-	public void put(int x, int y, int val){
-		if (val == 1){
-			this.aliveCells.add(new Point(x, y));
+	public void put(int x, int y){
+		Point toAdd = new Point(x, y);
+		if (this.aliveCells.contains(toAdd)){
+			this.aliveCells.remove(toAdd);
 		} else {
-			this.aliveCells.remove(new Point(x, y));
+			this.aliveCells.add(toAdd);
 		}
 	}
 
